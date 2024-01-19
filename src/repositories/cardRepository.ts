@@ -72,7 +72,6 @@ export async function insert(cardData: CardInsertData) {
     cardholderName,
     securityCode,
     expirationDate,
-    password,
     isBlocked,
     type,
   } = cardData;
@@ -89,7 +88,6 @@ export async function insert(cardData: CardInsertData) {
       cardholderName,
       securityCode,
       expirationDate,
-      password,
       isBlocked,
       type,
     ]

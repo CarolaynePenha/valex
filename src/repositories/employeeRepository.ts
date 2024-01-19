@@ -15,10 +15,11 @@ async function postEmployeeInfos(fullName:string,cpf:string,email:string,company
   );
   }
 
-async function findById(id: number) {
-  const result = await db.query<Employee, [number]>(
-    "SELECT * FROM employees WHERE id=$1",
-    [id]
+async function findById(id: number,companyId: number) {
+  const result = await db.query<Employee>(
+    `SELECT * FROM employees WHERE id=$1
+    AND "companyId"=$2`,
+    [id,companyId]
   );
 
   return result.rows[0];

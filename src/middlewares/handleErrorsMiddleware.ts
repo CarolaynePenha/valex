@@ -12,6 +12,9 @@ export function unauthorizedError() {
 export function notFoundError(message) {
   return { type: "notFound", message };
 }
+export function conflictError(message) {
+  return { type: "conflict", message };
+}
 
 export default function handleErrorsMiddleware(err, req: Request, res:Response, next:NextFunction) {
   console.error(err);
