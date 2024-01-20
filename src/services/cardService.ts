@@ -17,46 +17,50 @@ import {
 } from "../repositories/cardRepository.js";
 import { findByApiKey } from "../repositories/companyRepository.js";
 import employeeRepositories from "../repositories/employeeRepository.js";
+import { findByCardId } from "../repositories/paymentRepository.js";
+import rechargeRepository from "../repositories/rechargeRepository.js";
 
-export async function checkCompanyExists(apiKey: string, cardData) {
+export async function checkToRegisterCard(apiKey: string, cardData) {
+  const company = await checkCompanyExists(apiKey);
+  const companyId = company.id;
+  const isEmployee = await isEmployeeOfThisCompany(cardData, companyId);
+  const cardholderName = processName(isEmployee.fullName);
+  const cardDataWithcardholderName = { ...cardData, cardholderName };
+  await firstCardOfThisType(cardDataWithcardholderName);
+  await registerCard(cardDataWithcardholderName);
+}
+async function checkCompanyExists(apiKey: string) {
   const company = await findByApiKey(apiKey);
   if (company) {
-    await isEmployeeOfThisCompany(cardData, company.id);
+    return company;
   } else {
     const message = "Company not found";
     throw notFoundError(message);
   }
 }
-
-export async function isEmployeeOfThisCompany(cardData, companyId: number) {
+async function isEmployeeOfThisCompany(cardData, companyId: number) {
   const isEmployee = await employeeRepositories.findById(
     cardData.employeeId,
     companyId
   );
   if (isEmployee) {
-    const cardholderName = processName(isEmployee.fullName);
-    const cardDataWithcardholderName = { ...cardData, cardholderName };
-    await firstCardOfThisType(cardDataWithcardholderName);
+    return isEmployee;
   } else {
     const message = "Not an employee of this company";
     throw notFoundError(message);
   }
 }
-
-export async function firstCardOfThisType(cardData) {
+async function firstCardOfThisType(cardData) {
   const thisTypeOfCardExist = await findByTypeAndEmployeeId(
     cardData.type,
     cardData.employeeId
   );
-  if (!thisTypeOfCardExist) {
-    await registerCard(cardData);
-  } else {
+  if (thisTypeOfCardExist) {
     const message = "This employee already has a card of this type";
     throw conflictError(message);
   }
 }
-
-export async function registerCard(cardData) {
+async function registerCard(cardData) {
   const cryptr = new Cryptr("myTotallySecretKey");
   const number = faker.string.numeric(16);
   const cvv = faker.string.numeric(3);
@@ -67,8 +71,7 @@ export async function registerCard(cardData) {
     .format("MM/YY");
   insert({ ...cardData, securityCode, number, expirationDate });
 }
-
-export function processName(name: string) {
+function processName(name: string) {
   const part = name.split(" ");
   let result = part[0];
 
@@ -83,45 +86,92 @@ export function processName(name: string) {
   return result;
 }
 
-export async function checkCvv(card) {
-  const cardInfos = await findById(card.id);
-  const cryptr = new Cryptr("myTotallySecretKey");
-  const securityCode = cryptr.decrypt(cardInfos.securityCode);
+export async function activation(card) {
+  const cardInfos = await getCardInfos(card.id);
+  await checkCvv(card, cardInfos);
+  await checkValidity(cardInfos);
+  const cardData = await checkCardIsDisabled(card, cardInfos);
+  await activateEmployeeCard(card.id, cardData);
+}
+async function getCardInfos(id: number) {
+  const cardInfos = await findById(id);
   if (!cardInfos) {
     const message = "Card not found";
     throw notFoundError(message);
   }
+  return cardInfos;
+}
+async function checkCvv(card, cardInfos) {
+  const cryptr = new Cryptr("myTotallySecretKey");
+  const securityCode = cryptr.decrypt(cardInfos.securityCode);
+  console.log("securityCode: ", securityCode);
   if (card.cvv === securityCode) {
-    await checkValidity(card, cardInfos);
-    return;
+    return securityCode;
   }
   const message = "Invalid security code";
   throw unauthorizedError(message);
 }
-
-export async function checkValidity(card, cardInfos) {
+async function checkValidity(cardInfos) {
   const valid = dayjs(cardInfos.expirationDate).isBefore(dayjs());
   if (!valid) {
     const message = "Expired card";
     throw badRequestError(message);
   }
-  await checkCardIsDisabled(card, cardInfos);
 }
-
-export async function checkCardIsDisabled(card, cardInfos) {
+async function checkCardIsDisabled(card, cardInfos) {
   if (!cardInfos.password && cardInfos.isBlocked) {
     const passwordHash = bcrypt.hashSync(card.password, 10);
     const cardData = {
       password: passwordHash,
       isBlocked: false,
     };
-    activateEmployeeCard(card.id, cardData);
-    return;
+    return cardData;
   }
   const message = "Card already activated";
   throw badRequestError(message);
 }
-
-export async function activateEmployeeCard(id, cardData) {
+async function activateEmployeeCard(id: number, cardData) {
   await update(id, cardData);
+}
+
+export async function getBalance(id: number) {
+  const cardInfos = await findById(id);
+  if (!cardInfos) {
+    const message = "Card not found";
+    throw notFoundError(message);
+  }
+  const payments = await getPayments(id);
+  const recharge = await getRecharge(id);
+  const balance = balanceCount(recharge, payments);
+  const response = constructResponse(balance, recharge, payments);
+  return response;
+}
+async function getPayments(id: number) {
+  const paymentsawait = await findByCardId(id);
+  return paymentsawait;
+}
+async function getRecharge(id: number) {
+  const recharge = await rechargeRepository.findByCardId(id);
+  return recharge;
+}
+function balanceCount(recharge, payments) {
+  const initialValue = 0;
+  const totalRecharge = recharge.reduce(
+    (sum: number, currentValue) => sum + currentValue.amount,
+    initialValue
+  );
+  const totalpayments = payments.reduce(
+    (sum: number, currentValue) => sum + currentValue.amount,
+    initialValue
+  );
+  const balance = totalRecharge - totalpayments;
+  return balance;
+}
+function constructResponse(balance: number, recharge, payments) {
+  const response = {
+    balance,
+    transactions: payments,
+    recharges: recharge,
+  };
+  return response;
 }

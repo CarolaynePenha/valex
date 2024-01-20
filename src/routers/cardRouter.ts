@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  cardsBalance,
   registerCardInfos,
   updateCardInfos,
 } from "../controllers/cardsControllers.js";
@@ -14,5 +15,6 @@ cardRouter.put(
   validateSchema(activateSchema),
   updateCardInfos
 );
+cardRouter.get("/cardsBalance/:id", cardsBalance);
 
 export default cardRouter;
