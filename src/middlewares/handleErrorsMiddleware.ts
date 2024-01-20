@@ -3,10 +3,15 @@ import { Request, Response, NextFunction } from "express";
 const serviceErrorToStatusCode = {
   unauthorized: 401,
   notFound: 404,
+  conflict: 409,
+  unprocessableEntity: 422,
+  badRequest: 400,
 };
-
-export function unauthorizedError() {
-  return { type: "unauthorized" };
+export function unprocessableEntityError(message) {
+  return { type: "unprocessableEntity", message };
+}
+export function unauthorizedError(message) {
+  return { type: "unauthorized", message };
 }
 
 export function notFoundError(message) {
@@ -15,12 +20,19 @@ export function notFoundError(message) {
 export function conflictError(message) {
   return { type: "conflict", message };
 }
+export function badRequestError(message) {
+  return { type: "badRequest", message };
+}
 
-export default function handleErrorsMiddleware(err, req: Request, res:Response, next:NextFunction) {
+export default function handleErrorsMiddleware(
+  err,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   console.error(err);
   if (err.type) {
-    res.sendStatus(serviceErrorToStatusCode[err.type]);
+    return res.status(serviceErrorToStatusCode[err.type]).send(err.message);
   }
-
-  res.sendStatus(500);
+  return res.status(500).send(err);
 }

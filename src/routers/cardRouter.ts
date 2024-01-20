@@ -1,8 +1,18 @@
 import { Router } from "express";
-import { registerCardInfos } from "../controllers/cardsControllers";
+import {
+  registerCardInfos,
+  updateCardInfos,
+} from "../controllers/cardsControllers.js";
+import { validateSchema } from "../middlewares/validateSchema.js";
+import activateSchema from "../schemas/activateSchema.js";
 
-const cardRouter=Router()
+const cardRouter = Router();
 
-cardRouter.post("/registerCard",registerCardInfos)
+cardRouter.post("/registerCard", registerCardInfos);
+cardRouter.put(
+  "/activateCard",
+  validateSchema(activateSchema),
+  updateCardInfos
+);
 
 export default cardRouter;

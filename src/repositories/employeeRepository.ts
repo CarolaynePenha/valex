@@ -11,7 +11,7 @@ async function postEmployeeInfos(fullName:string,cpf:string,email:string,company
     return await db.query<Employee>(
     `INSERT INTO employees ("fullName",cpf,email,"companyId")
     VALUES($1,$2,$3,$4)`,
-    [fullName,cpf,email,companyId]
+    [fullName.toUpperCase(),cpf,email.toLowerCase(),companyId]
   );
   }
 
