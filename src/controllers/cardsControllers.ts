@@ -3,6 +3,7 @@ import {
   activation,
   checkToRegisterCard,
   getBalance,
+  lock,
 } from "../services/cardService.js";
 import { unprocessableEntityError } from "../middlewares/handleErrorsMiddleware.js";
 
@@ -28,4 +29,10 @@ export async function cardsBalance(req: Request, res: Response) {
   const { id } = req.params;
   const response = await getBalance(Number(id));
   res.status(200).send(response);
+}
+
+export async function blockingCard(req: Request, res: Response) {
+  const card = req.body;
+  await lock(card);
+  res.sendStatus(201);
 }

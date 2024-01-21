@@ -130,16 +130,19 @@ async function checkCardIsDisabled(card, cardInfos) {
   const message = "Card already activated";
   throw badRequestError(message);
 }
+async function checkCardIsBlocked(cardInfos) {
+  if (cardInfos.isBlocked) {
+    const message = "Card already blocked";
+    throw badRequestError(message);
+  }
+}
 async function activateEmployeeCard(id: number, cardData) {
   await update(id, cardData);
 }
 
 export async function getBalance(id: number) {
-  const cardInfos = await findById(id);
-  if (!cardInfos) {
-    const message = "Card not found";
-    throw notFoundError(message);
-  }
+  const cardInfos = await getCardInfos(id);
+  await checkValidity(cardInfos);
   const payments = await getPayments(id);
   const recharge = await getRecharge(id);
   const balance = balanceCount(recharge, payments);
@@ -174,4 +177,25 @@ function constructResponse(balance: number, recharge, payments) {
     recharges: recharge,
   };
   return response;
+}
+
+export async function lock(card) {
+  const cardInfos = await getCardInfos(card.id);
+  await checkValidity(cardInfos);
+  await checkCardIsBlocked(cardInfos);
+  comparePassword(card.password, cardInfos);
+  await lockCard(card.id);
+}
+function comparePassword(password: string, cardInfos) {
+  const compare = bcrypt.compareSync(password, cardInfos.password);
+  if (!compare) {
+    const message = "Incorrect information";
+    throw unauthorizedError(message);
+  }
+}
+async function lockCard(id: number) {
+  const cardData = {
+    isBlocked: true,
+  };
+  await update(id, cardData);
 }
