@@ -4,12 +4,9 @@ const serviceErrorToStatusCode = {
   unauthorized: 401,
   notFound: 404,
   conflict: 409,
-  unprocessableEntity: 422,
   badRequest: 400,
 };
-export function unprocessableEntityError(message) {
-  return { type: "unprocessableEntity", message };
-}
+
 export function unauthorizedError(message) {
   return { type: "unauthorized", message };
 }

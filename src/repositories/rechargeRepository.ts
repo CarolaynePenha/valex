@@ -17,7 +17,7 @@ async function findByCardId(cardId: number) {
   return result.rows;
 }
 
-async function insert(rechargeData: RechargeInsertData) {
+async function insertRecharge(rechargeData: RechargeInsertData) {
   const { cardId, amount } = rechargeData;
 
   db.query<any, [number, number]>(
@@ -27,6 +27,6 @@ async function insert(rechargeData: RechargeInsertData) {
 }
 const rechargeRepository = {
   findByCardId,
-  insert,
+  insertRecharge,
 };
 export default rechargeRepository;

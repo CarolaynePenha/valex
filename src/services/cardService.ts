@@ -1,6 +1,8 @@
 import { faker } from "@faker-js/faker";
 import Cryptr from "cryptr";
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat.js";
+dayjs.extend(customParseFormat);
 import bcrypt from "bcrypt";
 
 import {
@@ -29,7 +31,7 @@ export async function checkToRegisterCard(apiKey: string, cardData) {
   await firstCardOfThisType(cardDataWithcardholderName);
   await registerCard(cardDataWithcardholderName);
 }
-async function checkCompanyExists(apiKey: string) {
+export async function checkCompanyExists(apiKey: string) {
   const company = await findByApiKey(apiKey);
   if (company) {
     return company;
@@ -88,12 +90,12 @@ function processName(name: string) {
 
 export async function activation(card) {
   const cardInfos = await getCardInfos(card.id);
-  await checkCvv(card, cardInfos);
-  await checkValidity(cardInfos);
-  const cardData = await checkCardIsDisabled(card, cardInfos);
+  checkCvv(card, cardInfos);
+  checkValidity(cardInfos);
+  const cardData = checkCardIsDisabled(card, cardInfos);
   await activateEmployeeCard(card.id, cardData);
 }
-async function getCardInfos(id: number) {
+export async function getCardInfos(id: number) {
   const cardInfos = await findById(id);
   if (!cardInfos) {
     const message = "Card not found";
@@ -101,7 +103,7 @@ async function getCardInfos(id: number) {
   }
   return cardInfos;
 }
-async function checkCvv(card, cardInfos) {
+function checkCvv(card, cardInfos) {
   const cryptr = new Cryptr("myTotallySecretKey");
   const securityCode = cryptr.decrypt(cardInfos.securityCode);
   console.log("securityCode: ", securityCode);
@@ -111,14 +113,16 @@ async function checkCvv(card, cardInfos) {
   const message = "Invalid security code";
   throw unauthorizedError(message);
 }
-async function checkValidity(cardInfos) {
-  const valid = dayjs(cardInfos.expirationDate).isBefore(dayjs());
+export function checkValidity(cardInfos) {
+  const date = dayjs();
+  const expirationDate = dayjs(cardInfos.expirationDate, "MM/YY");
+  const valid = expirationDate.isAfter(date);
   if (!valid) {
     const message = "Expired card";
     throw badRequestError(message);
   }
 }
-async function checkCardIsDisabled(card, cardInfos) {
+function checkCardIsDisabled(card, cardInfos) {
   if (!cardInfos.password && cardInfos.isBlocked) {
     const passwordHash = bcrypt.hashSync(card.password, 10);
     const cardData = {
@@ -130,9 +134,21 @@ async function checkCardIsDisabled(card, cardInfos) {
   const message = "Card already activated";
   throw badRequestError(message);
 }
-async function checkCardIsBlocked(cardInfos) {
+export function checkCardIsBlocked(cardInfos) {
   if (cardInfos.isBlocked) {
-    const message = "Card already blocked";
+    const message = "Card is blocked";
+    throw badRequestError(message);
+  }
+}
+function checkCardIsUnblocked(cardInfos) {
+  if (!cardInfos.isBlocked) {
+    const message = "Card already unblocked";
+    throw badRequestError(message);
+  }
+}
+export function checkCardIsActive(cardInfos) {
+  if (!cardInfos.password) {
+    const message = "Deactivated card";
     throw badRequestError(message);
   }
 }
@@ -142,22 +158,22 @@ async function activateEmployeeCard(id: number, cardData) {
 
 export async function getBalance(id: number) {
   const cardInfos = await getCardInfos(id);
-  await checkValidity(cardInfos);
+  checkValidity(cardInfos);
   const payments = await getPayments(id);
   const recharge = await getRecharge(id);
   const balance = balanceCount(recharge, payments);
   const response = constructResponse(balance, recharge, payments);
   return response;
 }
-async function getPayments(id: number) {
+export async function getPayments(id: number) {
   const paymentsawait = await findByCardId(id);
   return paymentsawait;
 }
-async function getRecharge(id: number) {
+export async function getRecharge(id: number) {
   const recharge = await rechargeRepository.findByCardId(id);
   return recharge;
 }
-function balanceCount(recharge, payments) {
+export function balanceCount(recharge, payments) {
   const initialValue = 0;
   const totalRecharge = recharge.reduce(
     (sum: number, currentValue) => sum + currentValue.amount,
@@ -181,12 +197,12 @@ function constructResponse(balance: number, recharge, payments) {
 
 export async function lock(card) {
   const cardInfos = await getCardInfos(card.id);
-  await checkValidity(cardInfos);
-  await checkCardIsBlocked(cardInfos);
+  checkValidity(cardInfos);
+  checkCardIsBlocked(cardInfos);
   comparePassword(card.password, cardInfos);
   await lockCard(card.id);
 }
-function comparePassword(password: string, cardInfos) {
+export function comparePassword(password: string, cardInfos) {
   const compare = bcrypt.compareSync(password, cardInfos.password);
   if (!compare) {
     const message = "Incorrect information";
@@ -196,6 +212,20 @@ function comparePassword(password: string, cardInfos) {
 async function lockCard(id: number) {
   const cardData = {
     isBlocked: true,
+  };
+  await update(id, cardData);
+}
+export async function unlock(card) {
+  const cardInfos = await getCardInfos(card.id);
+  checkValidity(cardInfos);
+  checkCardIsActive(cardInfos);
+  checkCardIsUnblocked(cardInfos);
+  comparePassword(card.password, cardInfos);
+  await unlockCard(card.id);
+}
+async function unlockCard(id: number) {
+  const cardData = {
+    isBlocked: false,
   };
   await update(id, cardData);
 }

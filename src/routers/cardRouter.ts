@@ -3,6 +3,7 @@ import {
   cardsBalance,
   registerCardInfos,
   blockingCard,
+  unblockingCard,
   updateCardInfos,
 } from "../controllers/cardsControllers.js";
 import { validateSchema } from "../middlewares/validateSchema.js";
@@ -22,6 +23,11 @@ cardRouter.put(
   "/cardBlocking",
   validateSchema(cardblockingSchema),
   blockingCard
+);
+cardRouter.put(
+  "/cardUnblocking",
+  validateSchema(cardblockingSchema),
+  unblockingCard
 );
 
 export default cardRouter;
