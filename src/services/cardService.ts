@@ -63,7 +63,7 @@ async function firstCardOfThisType(cardData) {
   }
 }
 async function registerCard(cardData) {
-  const cryptr = new Cryptr("myTotallySecretKey");
+  const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY);
   const number = faker.string.numeric(16);
   const cvv = faker.string.numeric(3);
   const securityCode = cryptr.encrypt(cvv);
@@ -104,7 +104,7 @@ export async function getCardInfos(id: number) {
   return cardInfos;
 }
 function checkCvv(card, cardInfos) {
-  const cryptr = new Cryptr("myTotallySecretKey");
+  const cryptr = new Cryptr(process.env.CRYPTR_SECRET_KEY);
   const securityCode = cryptr.decrypt(cardInfos.securityCode);
   console.log("securityCode: ", securityCode);
   if (card.cvv === securityCode) {
@@ -166,8 +166,8 @@ export async function getBalance(id: number) {
   return response;
 }
 export async function getPayments(id: number) {
-  const paymentsawait = await findByCardId(id);
-  return paymentsawait;
+  const payments = await findByCardId(id);
+  return payments;
 }
 export async function getRecharge(id: number) {
   const recharge = await rechargeRepository.findByCardId(id);
